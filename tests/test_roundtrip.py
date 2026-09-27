@@ -196,3 +196,57 @@ def test_config_object_with_weird_eq_gets_type_error() -> None:
 
     with pytest.raises(TypeError):
         encode("abc", config=Weird())
+
+# --- Text mode tests: utf8 and ascii7 ---
+
+
+@pytest.mark.parametrize("base", [2, 4, 16, 36])
+@pytest.mark.parametrize(
+    "text",
+    ["", "A", "Hello, world", "Привет", "Привет 🌍", "a\tb\nc"],
+)
+def test_roundtrip_utf8(base: int, text: str) -> None:
+    code = encode(text, base=base, mode="utf8", config=None)
+    assert decode(code, base=base, config=None) == text
+
+
+@pytest.mark.parametrize("base", [2, 4, 16, 36])
+@pytest.mark.parametrize(
+    "text",
+    ["", "A", "Hello, world", "a\tb\nc", "12345"],
+)
+def test_roundtrip_ascii7(base: int, text: str) -> None:
+    code = encode(text, base=base, mode="ascii7", config=None)
+    assert decode(code, base=base, config=None) == text
+
+
+def test_ascii7_rejects_non_ascii() -> None:
+    with pytest.raises(ValueError, match="U\\+0000\\.\\.U\\+007F"):
+        encode("Привет", base=16, mode="ascii7", config=None)
+
+
+def test_utf8_rejects_surrogates() -> None:
+    with pytest.raises(ValueError, match="UTF-8"):
+        encode(chr(0xD800), base=16, mode="utf8", config=None)
+
+
+def test_utf8_is_smaller_than_codepoint21_for_latin() -> None:
+    text = "Hello, world"
+    cp21 = encode(text, base=16, mode="codepoint21", config=None)
+    u8 = encode(text, base=16, mode="utf8", config=None)
+    assert len(u8) < len(cp21)
+
+
+def test_ascii7_is_smallest_for_ascii() -> None:
+    text = "Hello, world! This is a fairly long ASCII-only string."
+    cp21 = encode(text, base=16, mode="codepoint21", config=None)
+    u8 = encode(text, base=16, mode="utf8", config=None)
+    a7 = encode(text, base=16, mode="ascii7", config=None)
+    assert len(a7) < len(u8) < len(cp21)
+
+def test_ascii7_is_smallest_for_ascii_long() -> None:
+    text = "Hello, world! This is a fairly long ASCII-only string."
+    cp21 = encode(text, base=16, mode="codepoint21", config=None)
+    u8 = encode(text, base=16, mode="utf8", config=None)
+    a7 = encode(text, base=16, mode="ascii7", config=None)
+    assert len(a7) < len(u8) < len(cp21)

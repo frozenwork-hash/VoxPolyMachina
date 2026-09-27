@@ -164,9 +164,10 @@ def preamble_params_from_fsk(
     if mode == "none":
         return None
     if mode == "trill":
+        freqs = fsk.frequencies()
         return PreambleParams(
-            f_a=fsk.f_min,
-            f_b=fsk.f_max,
+            f_a=freqs[0],
+            f_b=freqs[-1],
             symbol_ms=fsk.symbol_ms,
             repeats=repeats,
             sample_rate=fsk.sample_rate,

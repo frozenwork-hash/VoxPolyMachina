@@ -145,3 +145,89 @@ def test_audio_info_returns_expected_fields(tmp_path) -> None:
     assert isinstance(info["preamble_offset"], int)
     assert info["preamble_offset"] > 0
     assert info["duration_s"] > 0
+
+    # --- Custom frequency grid ---
+
+
+def test_audio_roundtrip_custom_frequencies_base2(tmp_path) -> None:
+    path = tmp_path / "out.wav"
+    text = "custom base 2"
+    freqs = [1000.0, 2000.0]
+    audio_encode(
+        text, path, audio_base=2, frequencies=freqs, config=None
+    )
+    assert audio_decode(
+        path, audio_base=2, frequencies=freqs, config=None
+    ) == text
+
+
+def test_audio_roundtrip_custom_frequencies_base4(tmp_path) -> None:
+    path = tmp_path / "out.wav"
+    text = "Hello"
+    freqs = [800.0, 1200.0, 2000.0, 3000.0]
+    audio_encode(
+        text, path, audio_base=4, frequencies=freqs, config=None
+    )
+    assert audio_decode(
+        path, audio_base=4, frequencies=freqs, config=None
+    ) == text
+
+
+def test_audio_custom_freqs_wrong_length_rejected(tmp_path) -> None:
+    path = tmp_path / "out.wav"
+    with pytest.raises(ValueError, match="expected exactly 2"):
+        audio_encode(
+            "x", path, audio_base=2,
+            frequencies=[1000.0, 2000.0, 3000.0],
+            config=None,
+        )
+
+
+def test_audio_custom_freqs_duplicate_rejected(tmp_path) -> None:
+    path = tmp_path / "out.wav"
+    with pytest.raises(ValueError, match="duplicate"):
+        audio_encode(
+            "x", path, audio_base=2,
+            frequencies=[1000.0, 1000.0],
+            config=None,
+        )
+
+
+def test_audio_custom_freqs_nyquist_rejected(tmp_path) -> None:
+    path = tmp_path / "out.wav"
+    with pytest.raises(ValueError, match="Nyquist"):
+        audio_encode(
+            "x", path, audio_base=2,
+            frequencies=[1000.0, 25000.0],
+            config=None,
+        )
+
+
+def test_audio_decode_wrong_freqs_fails(tmp_path) -> None:
+    """Decoding with the wrong frequency grid must not return garbage."""
+    path = tmp_path / "out.wav"
+    freqs = [800.0, 1200.0, 2000.0, 3000.0]
+    audio_encode(
+        "hello", path, audio_base=4, frequencies=freqs, config=None
+    )
+    with pytest.raises(ValueError, match="preamble not found"):
+        # Default freqs would be 500..5000; the trill won't match.
+        audio_decode(path, audio_base=4, config=None)
+
+
+# --- WAV path validation ---
+
+
+def test_audio_encode_rejects_directory(tmp_path) -> None:
+    with pytest.raises(ValueError, match="directory"):
+        audio_encode("x", tmp_path, audio_base=2, config=None)
+
+
+def test_audio_decode_rejects_directory(tmp_path) -> None:
+    with pytest.raises(ValueError, match="not a file"):
+        audio_decode(tmp_path, audio_base=2, config=None)
+
+
+def test_audio_decode_rejects_missing_file(tmp_path) -> None:
+    with pytest.raises(ValueError, match="not a file"):
+        audio_decode(tmp_path / "nope.wav", audio_base=2, config=None)

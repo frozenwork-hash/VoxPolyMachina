@@ -35,6 +35,7 @@ DEFAULTS: dict[str, Any] = {
         "amplitude": 0.6,
         "f_min": 500,
         "f_max": 5000,
+        "frequencies": None,
         "auto_range": True,
         "preamble_mode": "trill",
         "custom_preamble": None,

@@ -46,6 +46,10 @@ def write_wav(
         ints.byteswap()
 
     path = Path(path)
+    if path.is_dir():
+        raise ValueError(
+            f"output path is a directory, need a filename: {path}"
+        )
     with wave.open(str(path), "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
@@ -61,6 +65,8 @@ def read_wav(path: str | Path) -> tuple[list[float], int]:
     pipeline free of format checks.
     """
     path = Path(path)
+    if not path.is_file():
+        raise ValueError(f"not a file: {path}")
     with wave.open(str(path), "rb") as w:
         if w.getnchannels() != 1:
             raise ValueError(
@@ -85,6 +91,8 @@ def read_wav(path: str | Path) -> tuple[list[float], int]:
 def info_wav(path: str | Path) -> dict:
     """Return basic metadata without decoding samples."""
     path = Path(path)
+    if not path.is_file():
+        raise ValueError(f"not a file: {path}")
     with wave.open(str(path), "rb") as w:
         n_frames = w.getnframes()
         sample_rate = w.getframerate()

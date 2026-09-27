@@ -43,16 +43,19 @@ def _resolve_freq_range(
 def _build_fsk(
     cfg: dict, audio_base: int, sample_rate: int, symbol_ms: float
 ) -> FSKParams:
-    f_min, f_max = _resolve_freq_range(cfg["audio"], sample_rate)
-    return FSKParams(
+    cfg_audio = cfg["audio"]
+    common = dict(
         base=audio_base,
-        f_min=f_min,
-        f_max=f_max,
         symbol_ms=symbol_ms,
         sample_rate=sample_rate,
-        amplitude=float(cfg["audio"]["amplitude"]),
-        fade_ms=float(cfg["audio"]["fade_ms"]),
+        amplitude=float(cfg_audio["amplitude"]),
+        fade_ms=float(cfg_audio["fade_ms"]),
     )
+    freqs = cfg_audio.get("frequencies")
+    if freqs is not None:
+        return FSKParams(frequencies_hz=list(freqs), **common)
+    f_min, f_max = _resolve_freq_range(cfg_audio, sample_rate)
+    return FSKParams(f_min=f_min, f_max=f_max, **common)
 
 
 def audio_encode(
@@ -62,10 +65,17 @@ def audio_encode(
     sample_rate: int | _UnsetType = _UNSET,
     symbol_ms: float | _UnsetType = _UNSET,
     preamble_mode: str | _UnsetType = _UNSET,
+    frequencies: list[float] | None | _UnsetType = _UNSET,
     config: Any = None,
 ) -> None:
-    """Encode text into a WAV file."""
+    """Encode text into a WAV file.
+
+    `frequencies`, if given, overrides config audio.frequencies and
+    audio.f_min/f_max. Must have exactly `audio_base` entries.
+    """
     cfg = _resolve_config(config)
+    if not isinstance(frequencies, _UnsetType):
+        cfg["audio"]["frequencies"] = frequencies
     if isinstance(audio_base, _UnsetType):
         audio_base = cfg["audio"]["base"]
     if isinstance(sample_rate, _UnsetType):
@@ -115,10 +125,16 @@ def audio_encode(
 def audio_decode(
     path: str | Path,
     audio_base: int | _UnsetType = _UNSET,
+    frequencies: list[float] | None | _UnsetType = _UNSET,
     config: Any = None,
 ) -> str:
-    """Decode a WAV file produced by audio_encode."""
+    """Decode a WAV file produced by audio_encode.
+
+    `frequencies` must match whatever was used for encoding.
+    """
     cfg = _resolve_config(config)
+    if not isinstance(frequencies, _UnsetType):
+        cfg["audio"]["frequencies"] = frequencies
     if isinstance(audio_base, _UnsetType):
         audio_base = cfg["audio"]["base"]
 

@@ -21,29 +21,17 @@ from .tones import apply_fade, concat, sine_wave
 @dataclass
 class FSKParams:
     base: int
-    f_min: float
-    f_max: float
     symbol_ms: float
     sample_rate: int
+    f_min: float | None = None
+    f_max: float | None = None
+    frequencies_hz: list[float] | None = None
     amplitude: float = 0.6
     fade_ms: float = 5.0
 
     def __post_init__(self) -> None:
         if not 2 <= self.base <= 36:
             raise ValueError(f"base must be in 2..36, got {self.base}")
-        if self.f_min <= 0:
-            raise ValueError(f"f_min must be positive, got {self.f_min}")
-        if self.f_max <= self.f_min:
-            raise ValueError(
-                f"f_max must be > f_min, "
-                f"got f_min={self.f_min}, f_max={self.f_max}"
-            )
-        nyquist = self.sample_rate / 2.0
-        if self.f_max >= nyquist:
-            raise ValueError(
-                f"f_max={self.f_max} Hz violates Nyquist "
-                f"(sample_rate={self.sample_rate}, limit={nyquist} Hz)"
-            )
         if self.symbol_ms <= 0:
             raise ValueError(f"symbol_ms must be positive, got {self.symbol_ms}")
         if self.sample_rate <= 0:
@@ -53,16 +41,59 @@ class FSKParams:
         if self.fade_ms < 0:
             raise ValueError(f"fade_ms must be >= 0, got {self.fade_ms}")
 
+        nyquist = self.sample_rate / 2.0
+
+        if self.frequencies_hz is not None:
+            if self.f_min is not None or self.f_max is not None:
+                raise ValueError(
+                    "pass either frequencies_hz or f_min/f_max, not both"
+                )
+            freqs = list(self.frequencies_hz)
+            if len(freqs) != self.base:
+                raise ValueError(
+                    f"frequencies_hz has {len(freqs)} entries, "
+                    f"expected exactly {self.base} (one per symbol)"
+                )
+            seen: set[float] = set()
+            for f in freqs:
+                if f <= 0:
+                    raise ValueError(f"frequencies must be positive, got {f}")
+                if f >= nyquist:
+                    raise ValueError(
+                        f"frequency {f} Hz violates Nyquist "
+                        f"(sample_rate={self.sample_rate}, limit={nyquist} Hz)"
+                    )
+                if f in seen:
+                    raise ValueError(f"duplicate frequency: {f}")
+                seen.add(f)
+        else:
+            if self.f_min is None or self.f_max is None:
+                raise ValueError(
+                    "either frequencies_hz or both f_min and f_max are required"
+                )
+            if self.f_min <= 0:
+                raise ValueError(f"f_min must be positive, got {self.f_min}")
+            if self.f_max <= self.f_min:
+                raise ValueError(
+                    f"f_max must be > f_min, "
+                    f"got f_min={self.f_min}, f_max={self.f_max}"
+                )
+            if self.f_max >= nyquist:
+                raise ValueError(
+                    f"f_max={self.f_max} Hz violates Nyquist "
+                    f"(sample_rate={self.sample_rate}, limit={nyquist} Hz)"
+                )
+
     def frequencies(self) -> list[float]:
-        """Return the linear frequency grid, length == base."""
-        if self.base == 1:
-            return [self.f_min]
+        """Return the frequency grid, length == base."""
+        if self.frequencies_hz is not None:
+            return list(self.frequencies_hz)
+        assert self.f_min is not None and self.f_max is not None
         step = (self.f_max - self.f_min) / (self.base - 1)
         return [self.f_min + i * step for i in range(self.base)]
 
     @property
     def symbol_samples(self) -> int:
-        """Number of samples per symbol."""
         return int(round(self.sample_rate * self.symbol_ms / 1000.0))
 
 

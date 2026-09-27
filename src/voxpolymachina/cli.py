@@ -84,6 +84,15 @@ def audio_encode_command(
     preamble_mode: str | None = typer.Option(
         None, "--preamble", help="Preamble mode: trill | none"
     ),
+    freqs: str | None = typer.Option(
+        None,
+        "--freqs",
+        help=(
+            "Comma-separated frequencies in Hz, one per symbol, "
+            "e.g. '1000,2000'. Length must equal --audio-base. "
+            "Overrides config audio.f_min/f_max."
+        ),
+    ),
 ) -> None:
     """Encode text into a WAV file."""
     kwargs: dict = {"config": "auto"}
@@ -95,6 +104,12 @@ def audio_encode_command(
         kwargs["symbol_ms"] = symbol_ms
     if preamble_mode is not None:
         kwargs["preamble_mode"] = preamble_mode
+    if freqs is not None:
+        try:
+            kwargs["frequencies"] = _parse_freqs(freqs)
+        except ValueError as exc:
+            typer.echo(f"error: {exc}", err=True)
+            raise typer.Exit(code=1)
     try:
         audio_encode(text, out, **kwargs)
     except Exception as exc:
@@ -109,11 +124,26 @@ def audio_decode_command(
     audio_base: int | None = typer.Option(
         None, "--audio-base", help="Number of tones, 2..36 (default from config)"
     ),
+    freqs: str | None = typer.Option(
+        None,
+        "--freqs",
+        help=(
+            "Comma-separated frequencies in Hz, one per symbol, "
+            "e.g. '1000,2000'. Length must equal --audio-base. "
+            "Overrides config audio.f_min/f_max."
+        ),
+    ),
 ) -> None:
     """Decode a WAV file produced by audio-encode."""
     kwargs: dict = {"config": "auto"}
     if audio_base is not None:
         kwargs["audio_base"] = audio_base
+    if freqs is not None:
+        try:
+            kwargs["frequencies"] = _parse_freqs(freqs)
+        except ValueError as exc:
+            typer.echo(f"error: {exc}", err=True)
+            raise typer.Exit(code=1)
     try:
         typer.echo(audio_decode(path, **kwargs))
     except Exception as exc:
@@ -132,6 +162,17 @@ def audio_info_command(
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=1)
     typer.echo(json.dumps(info, indent=2))
+
+@app.command("parse-freqs")
+def _parse_freqs(s: str) -> list[float]:
+    """Parse '1000,2000' or '500, 700, 1900' into a list of floats."""
+    parts = [p.strip() for p in s.split(",") if p.strip()]
+    if not parts:
+        raise ValueError("empty --freqs value")
+    try:
+        return [float(p) for p in parts]
+    except ValueError as exc:
+        raise ValueError(f"invalid --freqs value {s!r}: {exc}") from exc
     
 @app.command("config")
 def config_command(
