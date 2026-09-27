@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "voxpolymachina"
+version = "0.1.0"
+description = "Bidirectional codec: text <-> bits <-> base N (audio planned)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = ["codec", "unicode", "base-n", "fsk", "audio"]
+
+dependencies = [
+  "typer>=0.9",
+]
+
+[project.optional-dependencies]
+audio = ["numpy>=1.24", "sounddevice>=0.4"]
+mp3 = ["pydub>=0.25"]
+dev = ["pytest>=7", "hypothesis>=6"]
+
+[project.scripts]
+vpm = "voxpolymachina.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/voxpolymachina"]
