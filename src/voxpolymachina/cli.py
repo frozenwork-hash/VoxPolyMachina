@@ -133,9 +133,14 @@ def audio_decode_command(
             "Overrides config audio.f_min/f_max."
         ),
     ),
+        debug: bool = typer.Option(
+        False, "--debug", help="Print preamble detection diagnostics"
+    ),
 ) -> None:
     """Decode a WAV file produced by audio-encode."""
     kwargs: dict = {"config": "auto"}
+    if debug:
+        kwargs["debug"] = True
     if audio_base is not None:
         kwargs["audio_base"] = audio_base
     if freqs is not None:

@@ -121,11 +121,26 @@ def audio_encode(
         amplitude=cfg["audio"]["amplitude"],
     )
 
+def _normalize_peak(samples: list[float], target: float = 0.9) -> list[float]:
+    """Scale samples so the peak absolute value is `target`.
+
+    Real recordings from a microphone are usually much quieter than
+    synthetic ones; normalising helps the Goertzel detector see a
+    cleaner signal without depending on absolute levels.
+    """
+    if not samples:
+        return samples
+    peak = max(abs(s) for s in samples)
+    if peak < 1e-6:
+        return samples
+    scale = target / peak
+    return [s * scale for s in samples]
 
 def audio_decode(
     path: str | Path,
     audio_base: int | _UnsetType = _UNSET,
     frequencies: list[float] | None | _UnsetType = _UNSET,
+    debug: bool = False,
     config: Any = None,
 ) -> str:
     """Decode a WAV file produced by audio_encode.
@@ -139,6 +154,7 @@ def audio_decode(
         audio_base = cfg["audio"]["base"]
 
     samples, sample_rate = read_wav(path)
+    samples = _normalize_peak(samples)
     fsk = _build_fsk(
         cfg, audio_base, sample_rate, float(cfg["audio"]["symbol_ms"])
     )
@@ -153,6 +169,11 @@ def audio_decode(
     else:
         found = find_preamble(samples, pre_params)
         if found is None:
+            if debug:
+                import json as _json
+                from .preamble import find_preamble_debug
+                info = find_preamble_debug(samples, pre_params)
+                print(_json.dumps(info, indent=2))
             raise ValueError(
                 "preamble not found. Check that audio_base, symbol_ms, "
                 "and preamble_mode match the encoder, or that the file "
@@ -160,26 +181,49 @@ def audio_decode(
             )
         start = found
 
+    from ..basecodec import CHUNK_BITS, _width_for
+    from ..header import BASE_HEADER_BITS
+
     n_per = fsk.symbol_samples
+    width = _width_for(audio_base)
     available = len(samples) - start
     max_symbols = available // n_per
     if max_symbols <= 0:
         raise ValueError("no audio data after preamble")
 
+    # Decode the maximum available, then try increasing chunk counts
+    # until CRC passes. We can't know the exact payload length before
+    # parsing the header, and the header itself is variable-length.
     all_symbols = samples_to_symbols(
         samples[start : start + max_symbols * n_per],
         max_symbols,
         fsk,
     )
-    combined = base_to_bits(all_symbols, audio_base)
 
-    header, consumed = parse_header(combined)
-    payload_end = consumed + header.payload_bits
-    if payload_end > len(combined):
-        raise ValueError("payload_bits exceeds available audio data")
-    payload = combined[consumed:payload_end]
-    verify_header(header, payload)
-    return bits_to_text(payload, mode=header.mode)
+    min_chunks = BASE_HEADER_BITS // CHUNK_BITS  # 3
+    max_chunks = max_symbols // width
+    last_error: Exception | None = None
+
+    for n_chunks in range(min_chunks, max_chunks + 1):
+        n_syms = n_chunks * width
+        syms = all_symbols[:n_syms]
+        try:
+            combined = base_to_bits(syms, audio_base)
+            header, consumed = parse_header(combined)
+            if consumed + header.payload_bits > len(combined):
+                continue
+            payload = combined[consumed : consumed + header.payload_bits]
+            verify_header(header, payload)
+            return bits_to_text(payload, mode=header.mode)
+        except ValueError as exc:
+            last_error = exc
+            continue
+
+    if last_error is not None:
+        raise ValueError(
+            f"could not find a valid payload (last error: {last_error})"
+        )
+    raise ValueError("no valid payload found in decoded audio")
 
 
 def audio_info(path: str | Path, config: Any = None) -> dict:
