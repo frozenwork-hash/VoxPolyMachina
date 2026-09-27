@@ -9,6 +9,7 @@ from . import __version__
 from . import decode as _decode
 from . import encode as _encode
 from .config import ensure_global_config, load_config
+from .audio import audio_decode, audio_encode, audio_info
 
 app = typer.Typer(
     add_completion=False,
@@ -67,7 +68,71 @@ def decode_command(
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=1)
 
+@app.command("audio-encode")
+def audio_encode_command(
+    text: str = typer.Argument(..., help="Text to encode"),
+    out: str = typer.Option(..., "--out", "-o", help="Output WAV path"),
+    audio_base: int | None = typer.Option(
+        None, "--audio-base", help="Number of tones, 2..36 (default from config)"
+    ),
+    sample_rate: int | None = typer.Option(
+        None, "--sample-rate", help="Sample rate in Hz"
+    ),
+    symbol_ms: float | None = typer.Option(
+        None, "--symbol-ms", help="Symbol duration in milliseconds"
+    ),
+    preamble_mode: str | None = typer.Option(
+        None, "--preamble", help="Preamble mode: trill | none"
+    ),
+) -> None:
+    """Encode text into a WAV file."""
+    kwargs: dict = {"config": "auto"}
+    if audio_base is not None:
+        kwargs["audio_base"] = audio_base
+    if sample_rate is not None:
+        kwargs["sample_rate"] = sample_rate
+    if symbol_ms is not None:
+        kwargs["symbol_ms"] = symbol_ms
+    if preamble_mode is not None:
+        kwargs["preamble_mode"] = preamble_mode
+    try:
+        audio_encode(text, out, **kwargs)
+    except Exception as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"wrote {out}")
 
+
+@app.command("audio-decode")
+def audio_decode_command(
+    path: str = typer.Argument(..., help="Input WAV path"),
+    audio_base: int | None = typer.Option(
+        None, "--audio-base", help="Number of tones, 2..36 (default from config)"
+    ),
+) -> None:
+    """Decode a WAV file produced by audio-encode."""
+    kwargs: dict = {"config": "auto"}
+    if audio_base is not None:
+        kwargs["audio_base"] = audio_base
+    try:
+        typer.echo(audio_decode(path, **kwargs))
+    except Exception as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("audio-info")
+def audio_info_command(
+    path: str = typer.Argument(..., help="Input WAV path"),
+) -> None:
+    """Show WAV metadata and preamble offset estimate."""
+    try:
+        info = audio_info(path, config="auto")
+    except Exception as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(json.dumps(info, indent=2))
+    
 @app.command("config")
 def config_command(
     show: bool = typer.Option(False, "--show", help="Print the merged config"),

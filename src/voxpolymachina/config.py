@@ -36,8 +36,10 @@ DEFAULTS: dict[str, Any] = {
         "f_min": 500,
         "f_max": 5000,
         "auto_range": True,
-        "preamble_mode": "both",
+        "preamble_mode": "trill",
         "custom_preamble": None,
+        "base": 4,
+        "preamble_repeats": 6,
     },
 }
 

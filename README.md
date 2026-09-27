@@ -56,3 +56,15 @@ As a library:
   Pass `config="auto"` to read or create files under
   `~/.config/voxpolymachina/`.
 - No audio yet.
+
+## Audio
+
+MFSK over WAV, mono 16-bit PCM, stdlib only.
+
+- Preamble: alternating two-tone trill for synchronisation, or none.
+- Symbol timing recovered to within ~`symbol_samples / 8` samples. The
+  decoder biases the payload start left by this margin, so sub-symbol
+  jitter cannot break alignment. Sub-sample precision is not attempted.
+- Two independent bases: `base.default_base` for the text layer (only
+  affects the string form produced by `vpm encode`) and `audio.base` for
+  the number of tones in the audio stream. They do not have to match.

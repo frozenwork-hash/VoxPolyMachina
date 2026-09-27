@@ -26,42 +26,10 @@ from .config import DEFAULTS, deep_merge, load_config
 from .header import build_header, parse_header, verify_header
 from .unicode_bits import bits_to_text, text_to_bits
 
+from ._sentinel import _UNSET, _UnsetType, _resolve_config
+
 __version__ = "0.1.0"
 __all__ = ["encode", "decode", "load_config", "__version__"]
-
-
-class _UnsetType:
-    """Sentinel type: distinguishes 'not provided' from an explicit None."""
-
-    __slots__ = ()
-
-    def __repr__(self) -> str:
-        return "_UNSET"
-
-
-_UNSET = _UnsetType()
-
-
-def _resolve_config(config: Any) -> dict:
-    """Return the effective config dict for this call.
-
-    Type is checked before any equality comparison, so objects with
-    unusual __eq__ (numpy arrays, pandas Series) cannot slip through.
-    """
-    if config is None:
-        return copy.deepcopy(DEFAULTS)
-
-    if isinstance(config, str):
-        if config == "auto":
-            return load_config()
-        raise TypeError(f"config string must be 'auto', got {config!r}")
-
-    if isinstance(config, dict):
-        return deep_merge(copy.deepcopy(DEFAULTS), config)
-
-    raise TypeError(
-        f"config must be None, 'auto', or a dict; got {type(config).__name__}"
-    )
 
 
 def encode(
