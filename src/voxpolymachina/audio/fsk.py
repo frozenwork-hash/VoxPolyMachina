@@ -15,7 +15,7 @@ import math
 from dataclasses import dataclass
 
 from ..basecodec import ALPHABET
-from .tones import apply_fade, concat, sine_wave
+from .tones import WAVEFORMS, apply_fade, concat, generate_wave
 
 
 @dataclass
@@ -28,6 +28,7 @@ class FSKParams:
     frequencies_hz: list[float] | None = None
     amplitude: float = 0.6
     fade_ms: float = 5.0
+    waveform: str = "sine"
 
     def __post_init__(self) -> None:
         if not 2 <= self.base <= 36:
@@ -35,11 +36,20 @@ class FSKParams:
         if self.symbol_ms <= 0:
             raise ValueError(f"symbol_ms must be positive, got {self.symbol_ms}")
         if self.sample_rate <= 0:
-            raise ValueError(f"sample_rate must be positive, got {self.sample_rate}")
+            raise ValueError(
+                f"sample_rate must be positive, got {self.sample_rate}"
+            )
         if not 0.0 < self.amplitude <= 1.0:
-            raise ValueError(f"amplitude must be in (0, 1], got {self.amplitude}")
+            raise ValueError(
+                f"amplitude must be in (0, 1], got {self.amplitude}"
+            )
         if self.fade_ms < 0:
             raise ValueError(f"fade_ms must be >= 0, got {self.fade_ms}")
+        if self.waveform not in WAVEFORMS:
+            raise ValueError(
+                f"unknown waveform {self.waveform!r}; "
+                f"expected one of {', '.join(WAVEFORMS)}"
+            )
 
         nyquist = self.sample_rate / 2.0
 
@@ -61,7 +71,8 @@ class FSKParams:
                 if f >= nyquist:
                     raise ValueError(
                         f"frequency {f} Hz violates Nyquist "
-                        f"(sample_rate={self.sample_rate}, limit={nyquist} Hz)"
+                        f"(sample_rate={self.sample_rate}, "
+                        f"limit={nyquist} Hz)"
                     )
                 if f in seen:
                     raise ValueError(f"duplicate frequency: {f}")
@@ -85,7 +96,6 @@ class FSKParams:
                 )
 
     def frequencies(self) -> list[float]:
-        """Return the frequency grid, length == base."""
         if self.frequencies_hz is not None:
             return list(self.frequencies_hz)
         assert self.f_min is not None and self.f_max is not None
@@ -97,13 +107,6 @@ class FSKParams:
         return int(round(self.sample_rate * self.symbol_ms / 1000.0))
 
 
-def _digit_value(ch: str, base: int) -> int:
-    idx = ALPHABET.find(ch)
-    if idx < 0 or idx >= base:
-        raise ValueError(f"character {ch!r} is not a valid base-{base} digit")
-    return idx
-
-
 def symbols_to_samples(symbols: str, params: FSKParams) -> list[float]:
     """Modulate a base-N string into audio samples."""
     freqs = params.frequencies()
@@ -111,12 +114,32 @@ def symbols_to_samples(symbols: str, params: FSKParams) -> list[float]:
     blocks: list[list[float]] = []
     for ch in symbols:
         v = _digit_value(ch, params.base)
-        block = sine_wave(
-            freqs[v], duration_s, params.sample_rate, params.amplitude
+        block = generate_wave(
+            freqs[v],
+            duration_s,
+            params.sample_rate,
+            params.waveform,
+            params.amplitude,
         )
         block = apply_fade(block, params.sample_rate, params.fade_ms)
         blocks.append(block)
     return concat(blocks)
+
+    def frequencies(self) -> list[float]:
+        """Return the frequency grid, length == base."""
+        if self.frequencies_hz is not None:
+            return list(self.frequencies_hz)
+        assert self.f_min is not None and self.f_max is not None
+        step = (self.f_max - self.f_min) / (self.base - 1)
+        return [self.f_min + i * step for i in range(self.base)]
+
+
+
+def _digit_value(ch: str, base: int) -> int:
+    idx = ALPHABET.find(ch)
+    if idx < 0 or idx >= base:
+        raise ValueError(f"character {ch!r} is not a valid base-{base} digit")
+    return idx
 
 
 def _goertzel_power(

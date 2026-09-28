@@ -10,6 +10,7 @@ from . import decode as _decode
 from . import encode as _encode
 from .config import ensure_global_config, load_config
 from .audio import audio_decode, audio_encode, audio_info
+from .audio.styles import STYLES
 
 app = typer.Typer(
     add_completion=False,
@@ -84,6 +85,16 @@ def audio_encode_command(
     preamble_mode: str | None = typer.Option(
         None, "--preamble", help="Preamble mode: trill | none"
     ),
+        style: str | None = typer.Option(
+        None,
+        "--style",
+        help=f"Style preset: {', '.join(sorted(STYLES))}",
+    ),
+    waveform: str | None = typer.Option(
+        None,
+        "--waveform",
+        help="Waveform: sine | square | sawtooth | triangle",
+    ),
     freqs: str | None = typer.Option(
         None,
         "--freqs",
@@ -104,6 +115,10 @@ def audio_encode_command(
         kwargs["symbol_ms"] = symbol_ms
     if preamble_mode is not None:
         kwargs["preamble_mode"] = preamble_mode
+    if style is not None:
+        kwargs["style"] = style
+    if waveform is not None:
+        kwargs["waveform"] = waveform
     if freqs is not None:
         try:
             kwargs["frequencies"] = _parse_freqs(freqs)
@@ -124,6 +139,9 @@ def audio_decode_command(
     audio_base: int | None = typer.Option(
         None, "--audio-base", help="Number of tones, 2..36 (default from config)"
     ),
+    style: str | None = typer.Option(
+        None, "--style", help=f"Style preset: {', '.join(sorted(STYLES))}"
+    ),
     freqs: str | None = typer.Option(
         None,
         "--freqs",
@@ -143,6 +161,16 @@ def audio_decode_command(
         kwargs["debug"] = True
     if audio_base is not None:
         kwargs["audio_base"] = audio_base
+    if style is not None:
+        from .audio.styles import STYLES
+        s = STYLES.get(style)
+        if s is not None and not s.decodable:
+            typer.echo(
+                f"warning: style {style!r} is decorative only and "
+                "cannot be decoded reliably",
+                err=True,
+            )
+        kwargs["style"] = style
     if freqs is not None:
         try:
             kwargs["frequencies"] = _parse_freqs(freqs)
@@ -178,6 +206,13 @@ def _parse_freqs(s: str) -> list[float]:
         return [float(p) for p in parts]
     except ValueError as exc:
         raise ValueError(f"invalid --freqs value {s!r}: {exc}") from exc
+
+@app.command("styles")
+def styles_command() -> None:
+    """List available audio style presets."""
+    for name in sorted(STYLES):
+        s = STYLES[name]
+        typer.echo(f"{name:14s} base={s.audio_base}  {s.description}")
     
 @app.command("config")
 def config_command(

@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .fsk import FSKParams, _goertzel_power
-from .tones import apply_fade, concat, silence, sine_wave
+from .tones import apply_fade, concat, generate_wave, silence
 
 
 @dataclass
@@ -31,7 +31,8 @@ class PreambleParams:
     sample_rate: int
     amplitude: float = 0.6
     fade_ms: float = 5.0
-    silence_ms: float = 100.0  # gap between trill and payload
+    silence_ms: float = 100.0
+    waveform: str = "sine"
 
     def __post_init__(self) -> None:
         if self.f_a <= 0 or self.f_b <= 0:
@@ -75,8 +76,12 @@ def build_trill(params: PreambleParams) -> list[float]:
     blocks: list[list[float]] = []
     for _ in range(params.repeats):
         for f in (params.f_a, params.f_b):
-            block = sine_wave(
-                f, duration_s, params.sample_rate, params.amplitude
+            block = generate_wave(
+                f,
+                duration_s,
+                params.sample_rate,
+                params.waveform,
+                params.amplitude,
             )
             block = apply_fade(block, params.sample_rate, params.fade_ms)
             blocks.append(block)
@@ -252,11 +257,7 @@ def preamble_params_from_fsk(
     repeats: int,
     mode: str = "trill",
 ) -> PreambleParams | None:
-    """Build preamble params consistent with an FSKParams setup.
-
-    Returns None when mode == "none". Raises ValueError for modes that
-    are declared in the config but not implemented in v1.
-    """
+    """Build preamble params consistent with an FSKParams setup."""
     if mode == "none":
         return None
     if mode == "trill":
@@ -269,6 +270,7 @@ def preamble_params_from_fsk(
             sample_rate=fsk.sample_rate,
             amplitude=fsk.amplitude,
             fade_ms=fsk.fade_ms,
+            waveform=fsk.waveform,
         )
     raise ValueError(
         f"preamble mode {mode!r} is not implemented in v1 "

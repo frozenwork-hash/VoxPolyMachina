@@ -7,10 +7,7 @@ The only module in `audio/` that knows about all layers. It composes:
     base-N <-> tones     (fsk)
     tones <-> WAV        (wav)
     preamble             (preamble)
-
-The text layer and the audio layer use independent bases. `text_base`
-only affects the string form produced by `vpm encode`; it never enters
-the audio stream. `audio_base` controls how many tones are used.
+    style presets        (styles)
 """
 from __future__ import annotations
 
@@ -23,8 +20,23 @@ from ..header import build_header, parse_header, verify_header
 from ..unicode_bits import bits_to_text, text_to_bits
 from .fsk import FSKParams, samples_to_symbols, symbols_to_samples
 from .preamble import build_trill, find_preamble, preamble_params_from_fsk
+from .styles import get_style
 from .tones import concat
 from .wav import info_wav, read_wav, write_wav
+
+
+def _apply_style(cfg: dict, style_name: str) -> None:
+    """Overwrite audio config fields with values from a style preset."""
+    style = get_style(style_name)
+    cfg["audio"]["base"] = style.audio_base
+    cfg["audio"]["frequencies"] = list(style.frequencies)
+    cfg["audio"]["symbol_ms"] = style.symbol_ms
+    cfg["audio"]["waveform"] = style.waveform
+    cfg["audio"]["sample_rate"] = style.sample_rate
+    cfg["audio"]["amplitude"] = style.amplitude
+    cfg["audio"]["fade_ms"] = style.fade_ms
+    cfg["audio"]["preamble_mode"] = style.preamble_mode
+    cfg["audio"]["preamble_repeats"] = style.preamble_repeats
 
 
 def _resolve_freq_range(
@@ -33,7 +45,6 @@ def _resolve_freq_range(
     f_min = float(cfg_audio["f_min"])
     f_max = float(cfg_audio["f_max"])
     if cfg_audio.get("auto_range", False):
-        # Leave 10% margin below Nyquist for filter roll-off.
         limit = (sample_rate / 2.0) * 0.9
         if f_max > limit:
             f_max = limit
@@ -50,6 +61,7 @@ def _build_fsk(
         sample_rate=sample_rate,
         amplitude=float(cfg_audio["amplitude"]),
         fade_ms=float(cfg_audio["fade_ms"]),
+        waveform=cfg_audio.get("waveform", "sine"),
     )
     freqs = cfg_audio.get("frequencies")
     if freqs is not None:
@@ -58,24 +70,61 @@ def _build_fsk(
     return FSKParams(f_min=f_min, f_max=f_max, **common)
 
 
+def _normalize_peak(samples: list[float], target: float = 0.9) -> list[float]:
+    """Scale samples so the peak absolute value is `target`."""
+    if not samples:
+        return samples
+    peak = max(abs(s) for s in samples)
+    if peak < 1e-6:
+        return samples
+    scale = target / peak
+    return [s * scale for s in samples]
+
+
+def _prepare_cfg(
+    config: Any,
+    style: str | None,
+    frequencies: list[float] | None | _UnsetType,
+    waveform: str | _UnsetType,
+) -> dict:
+    cfg = _resolve_config(config)
+    if style is not None:
+        _apply_style(cfg, style)
+    if not isinstance(frequencies, _UnsetType):
+        cfg["audio"]["frequencies"] = frequencies
+    if not isinstance(waveform, _UnsetType):
+        cfg["audio"]["waveform"] = waveform
+    return cfg
+
+
 def audio_encode(
     text: str,
-    path: str | Path,
+    path: str | Path | None = None,
     audio_base: int | _UnsetType = _UNSET,
     sample_rate: int | _UnsetType = _UNSET,
     symbol_ms: float | _UnsetType = _UNSET,
     preamble_mode: str | _UnsetType = _UNSET,
     frequencies: list[float] | None | _UnsetType = _UNSET,
+    waveform: str | _UnsetType = _UNSET,
+    style: str | None = None,
+    inline: bool = False,
     config: Any = None,
-) -> None:
-    """Encode text into a WAV file.
+) -> tuple[list[float], int] | None:
+    """Encode text into a WAV file, or (samples, sample_rate) when inline=True.
 
-    `frequencies`, if given, overrides config audio.frequencies and
-    audio.f_min/f_max. Must have exactly `audio_base` entries.
+    Precedence (low to high): DEFAULTS, config files or dict, style,
+    explicit keyword arguments. `style` sets audio-layer fields only;
+    passing `frequencies` or `waveform` alongside a style overrides
+    just those fields.
     """
-    cfg = _resolve_config(config)
-    if not isinstance(frequencies, _UnsetType):
-        cfg["audio"]["frequencies"] = frequencies
+    if inline:
+        if path is not None:
+            raise ValueError("pass either path or inline=True, not both")
+    elif path is None:
+        raise ValueError("path is required unless inline=True")
+
+    cfg = _prepare_cfg(config, style, frequencies, waveform)
+
     if isinstance(audio_base, _UnsetType):
         audio_base = cfg["audio"]["base"]
     if isinstance(sample_rate, _UnsetType):
@@ -85,7 +134,6 @@ def audio_encode(
     if isinstance(preamble_mode, _UnsetType):
         preamble_mode = cfg["audio"]["preamble_mode"]
 
-    # Text layer: same bits vpm encode would produce.
     text_cfg = cfg["text"]
     payload = text_to_bits(
         text,
@@ -100,8 +148,6 @@ def audio_encode(
         has_hash=False,
     )
     combined = header.to_bits() + payload
-
-    # Bits -> audio-base-N string.
     audio_symbols = bits_to_base(combined, audio_base)
 
     fsk = _build_fsk(cfg, audio_base, sample_rate, symbol_ms)
@@ -114,42 +160,32 @@ def audio_encode(
         blocks.append(build_trill(pre_params))
     blocks.append(symbols_to_samples(audio_symbols, fsk))
 
+    samples = concat(blocks)
+
+    if inline:
+        return samples, sample_rate
+
     write_wav(
         path,
-        concat(blocks),
+        samples,
         sample_rate,
         amplitude=cfg["audio"]["amplitude"],
     )
+    return None
 
-def _normalize_peak(samples: list[float], target: float = 0.9) -> list[float]:
-    """Scale samples so the peak absolute value is `target`.
-
-    Real recordings from a microphone are usually much quieter than
-    synthetic ones; normalising helps the Goertzel detector see a
-    cleaner signal without depending on absolute levels.
-    """
-    if not samples:
-        return samples
-    peak = max(abs(s) for s in samples)
-    if peak < 1e-6:
-        return samples
-    scale = target / peak
-    return [s * scale for s in samples]
 
 def audio_decode(
     path: str | Path,
     audio_base: int | _UnsetType = _UNSET,
     frequencies: list[float] | None | _UnsetType = _UNSET,
+    waveform: str | _UnsetType = _UNSET,
+    style: str | None = None,
     debug: bool = False,
     config: Any = None,
 ) -> str:
-    """Decode a WAV file produced by audio_encode.
+    """Decode a WAV file produced by audio_encode."""
+    cfg = _prepare_cfg(config, style, frequencies, waveform)
 
-    `frequencies` must match whatever was used for encoding.
-    """
-    cfg = _resolve_config(config)
-    if not isinstance(frequencies, _UnsetType):
-        cfg["audio"]["frequencies"] = frequencies
     if isinstance(audio_base, _UnsetType):
         audio_base = cfg["audio"]["base"]
 
@@ -191,16 +227,13 @@ def audio_decode(
     if max_symbols <= 0:
         raise ValueError("no audio data after preamble")
 
-    # Decode the maximum available, then try increasing chunk counts
-    # until CRC passes. We can't know the exact payload length before
-    # parsing the header, and the header itself is variable-length.
     all_symbols = samples_to_symbols(
         samples[start : start + max_symbols * n_per],
         max_symbols,
         fsk,
     )
 
-    min_chunks = BASE_HEADER_BITS // CHUNK_BITS  # 3
+    min_chunks = BASE_HEADER_BITS // CHUNK_BITS
     max_chunks = max_symbols // width
     last_error: Exception | None = None
 

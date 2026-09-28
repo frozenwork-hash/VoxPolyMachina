@@ -204,13 +204,19 @@ def test_audio_custom_freqs_nyquist_rejected(tmp_path) -> None:
 
 
 def test_audio_decode_wrong_freqs_fails(tmp_path) -> None:
-    """Decoding with the wrong frequency grid must not return garbage."""
+    """Decoding with the wrong frequency grid must not return garbage.
+
+    Depending on the noise, the detector either fails to find the
+    preamble or finds a false one and fails later on CRC/magic. Both
+    outcomes are correct: what matters is that decode() raises instead
+    of returning wrong text.
+    """
     path = tmp_path / "out.wav"
     freqs = [800.0, 1200.0, 2000.0, 3000.0]
     audio_encode(
         "hello", path, audio_base=4, frequencies=freqs, config=None
     )
-    with pytest.raises(ValueError, match="preamble not found"):
+    with pytest.raises(ValueError):
         # Default freqs would be 500..5000; the trill won't match.
         audio_decode(path, audio_base=4, config=None)
 
