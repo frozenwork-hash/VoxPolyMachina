@@ -208,11 +208,60 @@ def _parse_freqs(s: str) -> list[float]:
         raise ValueError(f"invalid --freqs value {s!r}: {exc}") from exc
 
 @app.command("styles")
-def styles_command() -> None:
-    """List available audio style presets."""
-    for name in sorted(STYLES):
-        s = STYLES[name]
-        typer.echo(f"{name:14s} base={s.audio_base}  {s.description}")
+def styles_command(
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Show full parameters for each style"
+    ),
+    name: str | None = typer.Argument(
+        None, help="Show details for a single style by name"
+    ),
+) -> None:
+    """List available audio style presets, or show one in detail."""
+    if name is not None:
+        s = STYLES.get(name)
+        if s is None:
+            typer.echo(f"error: unknown style {name!r}", err=True)
+            typer.echo(f"available: {', '.join(sorted(STYLES))}", err=True)
+            raise typer.Exit(code=1)
+        _print_style_detail(s)
+        return
+
+    for key in sorted(STYLES):
+        s = STYLES[key]
+        marker = " " if s.decodable else "*"
+        if verbose:
+            freqs = ",".join(f"{f:g}" for f in s.frequencies)
+            typer.echo(
+                f"{marker} {key:16s} "
+                f"base={s.audio_base:<2d} "
+                f"freqs=[{freqs}] "
+                f"sym={s.symbol_ms:g}ms "
+                f"wave={s.waveform}"
+            )
+        else:
+            typer.echo(f"{marker} {key:16s} base={s.audio_base}  {s.description}")
+
+    if any(not STYLES[k].decodable for k in STYLES):
+        typer.echo("")
+        typer.echo("* decorative only: encodes to audio, does not decode")
+        typer.echo("  use 'vpm styles <name>' for full parameters")
+
+
+def _print_style_detail(s) -> None:
+    """Print a single style with all parameters."""
+    freqs = ", ".join(f"{f:g}" for f in s.frequencies)
+    typer.echo(f"style:            {s.name}")
+    typer.echo(f"description:      {s.description}")
+    typer.echo(f"decodable:        {'yes' if s.decodable else 'no (decorative)'}")
+    typer.echo(f"audio_base:       {s.audio_base}")
+    typer.echo(f"frequencies:      [{freqs}] Hz")
+    typer.echo(f"symbol_ms:        {s.symbol_ms:g}")
+    typer.echo(f"waveform:         {s.waveform}")
+    typer.echo(f"sample_rate:      {s.sample_rate}")
+    typer.echo(f"amplitude:        {s.amplitude:g}")
+    typer.echo(f"fade_ms:          {s.fade_ms:g}")
+    typer.echo(f"preamble_mode:    {s.preamble_mode}")
+    typer.echo(f"preamble_repeats: {s.preamble_repeats}")
     
 @app.command("config")
 def config_command(
