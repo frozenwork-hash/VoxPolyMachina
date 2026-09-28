@@ -31,7 +31,7 @@ from .unicode_bits import bits_to_text, text_to_bits
 
 from ._sentinel import _UNSET, _UnsetType, _resolve_config
 
-__version__ = "0.5.1"
+__version__ = "0.5.3"
 __all__ = ["encode", "decode", "load_config", "__version__"]
 
 

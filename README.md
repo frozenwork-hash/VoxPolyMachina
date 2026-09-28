@@ -6,13 +6,22 @@ output is standard 16-bit PCM WAV; no external audio libraries required.
 
 ## Status
 
-v0.5.0 — text layer and audio layer work end to end for synthetic WAVs.
+v0.5.3 — text layer and audio layer work end to end for synthetic WAVs.
 Real acoustic transmission (speaker to microphone) is possible but not
 robust; see "Known limitations" below.
 
 ## Install
 
+    pip install voxpolymachina
+
+For development, clone the repository and install in editable mode:
+
+    git clone https://github.com/frozenwork-hash/VoxPolyMachina.git
+    cd VoxPolyMachina
     pip install -e ".[dev]"
+
+The codec itself uses only the Python standard library. There are no
+required runtime dependencies beyond `typer` for the CLI.
 
 The `audio` extra (`numpy`, `sounddevice`) is not required by v0.4.
 Everything runs on the standard library.
