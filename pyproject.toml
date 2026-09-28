@@ -4,21 +4,39 @@ build-backend = "hatchling.build"
 
 [project]
 name = "voxpolymachina"
-version = "0.1.0"
-description = "Bidirectional codec: text <-> bits <-> base N (audio planned)"
+version = "0.5.0"
+description = "Bidirectional codec: text <-> bits <-> base N <-> audio (MFSK over WAV)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-keywords = ["codec", "unicode", "base-n", "fsk", "audio"]
+keywords = ["codec", "unicode", "base-n", "fsk", "audio", "morse", "modem"]
+authors = [
+  { name = "frozenwork-hash", email = "rostkomwork@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 5 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Multimedia :: Sound/Audio",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
 
 dependencies = [
   "typer>=0.9",
 ]
 
 [project.optional-dependencies]
-audio = ["numpy>=1.24", "sounddevice>=0.4"]
-mp3 = ["pydub>=0.25"]
 dev = ["pytest>=7", "hypothesis>=6"]
+
+[project.urls]
+Homepage = "https://github.com/frozenwork-hash/VoxPolyMachina"
+Repository = "https://github.com/frozenwork-hash/VoxPolyMachina"
+Issues = "https://github.com/frozenwork-hash/VoxPolyMachina/issues"
 
 [project.scripts]
 vpm = "voxpolymachina.cli:app"

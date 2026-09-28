@@ -6,7 +6,7 @@ output is standard 16-bit PCM WAV; no external audio libraries required.
 
 ## Status
 
-v0.4.0 — text layer and audio layer work end to end for synthetic WAVs.
+v0.5.0 — text layer and audio layer work end to end for synthetic WAVs.
 Real acoustic transmission (speaker to microphone) is possible but not
 robust; see "Known limitations" below.
 
