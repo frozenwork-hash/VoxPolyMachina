@@ -14,7 +14,10 @@ configuration. How the configuration is resolved depends on the
     config="auto"  read global and local config files
     config={...}   merge the given dict over built-in defaults
 
-Audio support is planned for a later release.
+Audio layer lives in voxpolymachina.audio:
+
+    audio_encode(text, path=..., style=...) -> None
+    audio_decode(path, ..., style=...) -> str
 """
 from __future__ import annotations
 
@@ -27,8 +30,8 @@ from .header import build_header, parse_header, verify_header
 from .unicode_bits import bits_to_text, text_to_bits
 
 from ._sentinel import _UNSET, _UnsetType, _resolve_config
-from ._version import __version__ 
 
+__version__ = "0.5.1"
 __all__ = ["encode", "decode", "load_config", "__version__"]
 
 

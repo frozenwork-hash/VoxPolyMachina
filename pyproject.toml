@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "voxpolymachina"
-dynamic = ["version"] 
+version = "0.5.1"
 description = "Bidirectional codec: text <-> bits <-> base N <-> audio (MFSK over WAV)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,7 +14,7 @@ authors = [
   { name = "frozenwork-hash", email = "rostkomwork@gmail.com" },
 ]
 classifiers = [
-  "Development Status :: 5 - Beta",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
