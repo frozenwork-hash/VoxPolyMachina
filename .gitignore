@@ -5,3 +5,4 @@ __pycache__/
 dist/
 build/
 .pytest_cache/
+src/voxpolymachina/_version.py

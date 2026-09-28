@@ -27,8 +27,8 @@ from .header import build_header, parse_header, verify_header
 from .unicode_bits import bits_to_text, text_to_bits
 
 from ._sentinel import _UNSET, _UnsetType, _resolve_config
+from ._version import __version__ 
 
-__version__ = "0.1.0"
 __all__ = ["encode", "decode", "load_config", "__version__"]
 
 
