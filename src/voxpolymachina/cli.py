@@ -133,14 +133,31 @@ def audio_encode_command(
     typer.echo(f"wrote {out}")
 
 
-@app.command("audio-decode")
-def audio_decode_command(
-    path: str = typer.Argument(..., help="Input WAV path"),
+@app.command("audio-encode")
+def audio_encode_command(
+    text: str = typer.Argument(..., help="Text to encode"),
+    out: str = typer.Option(..., "--out", "-o", help="Output WAV path"),
     audio_base: int | None = typer.Option(
         None, "--audio-base", help="Number of tones, 2..36 (default from config)"
     ),
+    sample_rate: int | None = typer.Option(
+        None, "--sample-rate", help="Sample rate in Hz"
+    ),
+    symbol_ms: float | None = typer.Option(
+        None, "--symbol-ms", help="Symbol duration in milliseconds"
+    ),
+    preamble_mode: str | None = typer.Option(
+        None, "--preamble", help="Preamble mode: trill | none"
+    ),
     style: str | None = typer.Option(
-        None, "--style", help=f"Style preset: {', '.join(sorted(STYLES))}"
+        None,
+        "--style",
+        help=f"Style preset: {', '.join(sorted(STYLES))}",
+    ),
+    waveform: str | None = typer.Option(
+        None,
+        "--waveform",
+        help="Waveform: sine | square | sawtooth | triangle",
     ),
     freqs: str | None = typer.Option(
         None,
@@ -151,37 +168,59 @@ def audio_decode_command(
             "Overrides config audio.f_min/f_max."
         ),
     ),
-        debug: bool = typer.Option(
-        False, "--debug", help="Print preamble detection diagnostics"
+    effects: str | None = typer.Option(
+        None,
+        "--effects",
+        help=(
+            "Comma-separated effects applied in order, e.g. "
+            "'soft_clip,reverb'. Available: soft_clip, hard_clip, "
+            "bitcrush, tremolo, ring_mod, chorus, reverb, lowpass."
+        ),
+    ),
+    no_effects: bool = typer.Option(
+        False,
+        "--no-effects",
+        help="Disable all effects, even if the style defines them",
     ),
 ) -> None:
-    """Decode a WAV file produced by audio-encode."""
+    """Encode text into a WAV file."""
     kwargs: dict = {"config": "auto"}
-    if debug:
-        kwargs["debug"] = True
     if audio_base is not None:
         kwargs["audio_base"] = audio_base
+    if sample_rate is not None:
+        kwargs["sample_rate"] = sample_rate
+    if symbol_ms is not None:
+        kwargs["symbol_ms"] = symbol_ms
+    if preamble_mode is not None:
+        kwargs["preamble_mode"] = preamble_mode
     if style is not None:
-        from .audio.styles import STYLES
-        s = STYLES.get(style)
-        if s is not None and not s.decodable:
-            typer.echo(
-                f"warning: style {style!r} is decorative only and "
-                "cannot be decoded reliably",
-                err=True,
-            )
         kwargs["style"] = style
+    if waveform is not None:
+        kwargs["waveform"] = waveform
     if freqs is not None:
         try:
             kwargs["frequencies"] = _parse_freqs(freqs)
         except ValueError as exc:
             typer.echo(f"error: {exc}", err=True)
             raise typer.Exit(code=1)
+    if no_effects and effects is not None:
+        typer.echo(
+            "error: --no-effects conflicts with --effects",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if no_effects:
+        kwargs["effects"] = []
+    elif effects is not None:
+        kwargs["effects"] = [
+            e.strip() for e in effects.split(",") if e.strip()
+        ]
     try:
-        typer.echo(audio_decode(path, **kwargs))
+        audio_encode(text, out, **kwargs)
     except Exception as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=1)
+    typer.echo(f"wrote {out}")
 
 
 @app.command("audio-info")

@@ -23,6 +23,7 @@ from .preamble import build_trill, find_preamble, preamble_params_from_fsk
 from .styles import get_style
 from .tones import concat
 from .wav import info_wav, read_wav, write_wav
+from .effects import apply_effects
 
 
 def _apply_style(cfg: dict, style_name: str) -> None:
@@ -37,6 +38,7 @@ def _apply_style(cfg: dict, style_name: str) -> None:
     cfg["audio"]["fade_ms"] = style.fade_ms
     cfg["audio"]["preamble_mode"] = style.preamble_mode
     cfg["audio"]["preamble_repeats"] = style.preamble_repeats
+    cfg["audio"]["effects"] = list(style.effects)
 
 
 def _resolve_freq_range(
@@ -86,6 +88,7 @@ def _prepare_cfg(
     style: str | None,
     frequencies: list[float] | None | _UnsetType,
     waveform: str | _UnsetType,
+    effects: list[str] | None | _UnsetType,
 ) -> dict:
     cfg = _resolve_config(config)
     if style is not None:
@@ -94,6 +97,8 @@ def _prepare_cfg(
         cfg["audio"]["frequencies"] = frequencies
     if not isinstance(waveform, _UnsetType):
         cfg["audio"]["waveform"] = waveform
+    if not isinstance(effects, _UnsetType):
+        cfg["audio"]["effects"] = effects
     return cfg
 
 
@@ -106,6 +111,7 @@ def audio_encode(
     preamble_mode: str | _UnsetType = _UNSET,
     frequencies: list[float] | None | _UnsetType = _UNSET,
     waveform: str | _UnsetType = _UNSET,
+    effects: list[str] | None | _UnsetType = _UNSET,
     style: str | None = None,
     inline: bool = False,
     config: Any = None,
@@ -114,8 +120,8 @@ def audio_encode(
 
     Precedence (low to high): DEFAULTS, config files or dict, style,
     explicit keyword arguments. `style` sets audio-layer fields only;
-    passing `frequencies` or `waveform` alongside a style overrides
-    just those fields.
+    passing `frequencies`, `waveform` or `effects` alongside a style
+    overrides just those fields.
     """
     if inline:
         if path is not None:
@@ -123,7 +129,7 @@ def audio_encode(
     elif path is None:
         raise ValueError("path is required unless inline=True")
 
-    cfg = _prepare_cfg(config, style, frequencies, waveform)
+    cfg = _prepare_cfg(config, style, frequencies, waveform, effects)
 
     if isinstance(audio_base, _UnsetType):
         audio_base = cfg["audio"]["base"]
@@ -161,6 +167,11 @@ def audio_encode(
     blocks.append(symbols_to_samples(audio_symbols, fsk))
 
     samples = concat(blocks)
+    samples = apply_effects(
+        samples,
+        sample_rate,
+        list(cfg["audio"].get("effects") or []),
+    )
 
     if inline:
         return samples, sample_rate
@@ -179,12 +190,17 @@ def audio_decode(
     audio_base: int | _UnsetType = _UNSET,
     frequencies: list[float] | None | _UnsetType = _UNSET,
     waveform: str | _UnsetType = _UNSET,
+    effects: list[str] | None | _UnsetType = _UNSET,
     style: str | None = None,
     debug: bool = False,
     config: Any = None,
 ) -> str:
-    """Decode a WAV file produced by audio_encode."""
-    cfg = _prepare_cfg(config, style, frequencies, waveform)
+    """Decode a WAV file produced by audio_encode.
+
+    `effects` is accepted for symmetry with audio_encode but is not
+    applied here: the effects are already baked into the recording.
+    """
+    cfg = _prepare_cfg(config, style, frequencies, waveform, effects)
 
     if isinstance(audio_base, _UnsetType):
         audio_base = cfg["audio"]["base"]

@@ -45,6 +45,7 @@ class Style:
     preamble_mode: str = "trill"
     preamble_repeats: int = 6
     decodable: bool = True
+    effects: list[str] = field(default_factory=list)
 
 STYLES: dict[str, Style] = {
     "bell103": Style(
@@ -163,6 +164,7 @@ STYLES: dict[str, Style] = {
         frequencies=[350.0, 850.0],
         symbol_ms=12.0,
         waveform="square",
+        effects=["soft_clip"]
     ),
     "chainsword": Style(
         name="chainsword",
@@ -174,6 +176,7 @@ STYLES: dict[str, Style] = {
         symbol_ms=20.0,
         waveform="sawtooth",
         decodable=False,
+        effects=["soft_clip", "reverb"]
     ),
     "lascannon": Style(
         name="lascannon",
@@ -232,6 +235,7 @@ STYLES: dict[str, Style] = {
         audio_base=2,
         frequencies=[60.0, 180.0],
         symbol_ms=120.0,
+        effects=["lowpass", "reverb"]
     ),
         "necron_scarab": Style(
         name="necron_scarab",
@@ -247,6 +251,7 @@ STYLES: dict[str, Style] = {
         symbol_ms=180.0,
         waveform="triangle",
         decodable=False,
+        effects=["ring_mod", "reverb"]
     ),
     "necron": Style(
         name="necron",
@@ -263,6 +268,7 @@ STYLES: dict[str, Style] = {
         symbol_ms=250.0,
         waveform="triangle",
         decodable=False,
+        effects=["reverb", "lowpass"]
     ),
     "noosphere": Style(
         name="noosphere",
@@ -284,6 +290,7 @@ STYLES: dict[str, Style] = {
         frequencies=[800.0, 2000.0],
         symbol_ms=15.0,
         waveform="square",
+        effects=["soft_clip", "tremolo"]
     ),
     "dataspike": Style(
         name="dataspike",
@@ -296,6 +303,7 @@ STYLES: dict[str, Style] = {
         symbol_ms=5.0,
         waveform="square",
         decodable=False,
+        effects=["bitcrush", "soft_clip"]
     ),
     "omnissiah": Style(
         name="omnissiah",
@@ -306,6 +314,7 @@ STYLES: dict[str, Style] = {
         frequencies=[1200.0, 2400.0],
         symbol_ms=30.0,
         preamble_repeats=8,
+        effects=["reverb", "chorus"]
     ),
 }
 

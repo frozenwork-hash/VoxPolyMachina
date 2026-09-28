@@ -41,6 +41,7 @@ DEFAULTS: dict[str, Any] = {
         "custom_preamble": None,
         "base": 4,
         "preamble_repeats": 6,
+        "effects": [],
     },
 }
 
