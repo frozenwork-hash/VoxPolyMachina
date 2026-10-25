@@ -6,7 +6,7 @@ output is standard 16-bit PCM WAV; no external audio libraries required.
 
 ## Status
 
-v0.5.3 — text layer and audio layer work end to end for synthetic WAVs.
+v0.5.4 — text layer and audio layer work end to end for synthetic WAVs.
 Real acoustic transmission (speaker to microphone) is possible but not
 robust; see "Known limitations" below.
 
@@ -245,3 +245,12 @@ between text base and audio base, the preamble silence gap, the style
 preset system, and the WH40K-themed presets all came out of that
 back-and-forth. Many of the trickier bugs were caught there too. The
 bugs that remain are, of course, mine.
+
+Thanks to **Fazal** who prompted the
+Python 3.13 classifier addition in v0.5.4.
+
+## Changelog
+
+- **0.5.4**: Quick wheel build patch — declared Python 3.13 and 3.14
+  classifiers in `pyproject.toml` so `pip` picks precompiled wheels on
+  modern environments.

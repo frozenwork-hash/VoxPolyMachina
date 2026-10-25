@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "voxpolymachina"
-version = "0.5.3"
+version = "0.5.4"
 description = "Bidirectional codec: text <-> bits <-> base N <-> audio (MFSK over WAV)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,6 +22,8 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Multimedia :: Sound/Audio",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
